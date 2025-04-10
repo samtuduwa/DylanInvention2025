@@ -1,0 +1,45 @@
+#define HX711_DATA 3  // Data pin (DT) connected to D3
+#define HX711_CLOCK 2 // Clock pin (SCK) connected to D2
+
+long readHX711() {
+    long value = 0;
+    int i;
+
+    // Wait for HX711 to become ready (DATA pin must be LOW)
+    while (digitalRead(HX711_DATA));
+
+    // Read 24-bit data from HX711
+    for (i = 0; i < 24; i++) {
+        digitalWrite(HX711_CLOCK, HIGH);
+        delayMicroseconds(1);
+        value = (value << 1) | digitalRead(HX711_DATA);
+        digitalWrite(HX711_CLOCK, LOW);
+        delayMicroseconds(1);
+    }
+
+    // HX711 outputs 25th pulse to set gain (128 for Channel A)
+    digitalWrite(HX711_CLOCK, HIGH);
+    delayMicroseconds(1);
+    digitalWrite(HX711_CLOCK, LOW);
+    delayMicroseconds(1);
+
+    // Convert to signed 24-bit integer
+    if (value & 0x800000) {
+        value |= 0xFF000000; // Extend negative sign for 32-bit conversion
+    }
+
+    return value;
+}
+
+void setup() {
+    pinMode(HX711_CLOCK, OUTPUT);
+    pinMode(HX711_DATA, INPUT);
+    Serial.begin(115200);
+}
+
+void loop() {
+    long rawValue = readHX711();  // Read raw data from HX711
+    //Serial.print("Raw HX711 Value: ");
+    Serial.println(rawValue);
+    delay(100);
+}
