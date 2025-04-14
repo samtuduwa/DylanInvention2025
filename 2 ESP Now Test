@@ -1,0 +1,135 @@
+#include <WiFi.h>
+#include <esp_now.h>
+
+// 📡 Receiver's MAC address (from your receiver's output)
+uint8_t receiverMacAddress[] = {0x5C, 0x01, 0x3B, 0x4B, 0x63, 0x78}; // Corrected MAC address
+
+// 🧠 Callback after data is sent
+void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
+  char macStr[18];
+  snprintf(macStr, sizeof(macStr), "%02X:%02X:%02X:%02X:%02X:%02X",
+           mac_addr[0], mac_addr[1], mac_addr[2],
+           mac_addr[3], mac_addr[4], mac_addr[5]);
+  Serial.print("Sent to: ");
+  Serial.print(macStr);
+  Serial.print(" | Status: ");
+  Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Success" : "Fail");
+}
+
+unsigned long lastSendTime = 0;
+const unsigned long sendInterval = 100;  // 2 seconds
+
+void setup() {
+  Serial.begin(115200);
+  WiFi.mode(WIFI_STA);  // Use Station mode
+  WiFi.disconnect();
+
+  // Initialize ESP-NOW
+  if (esp_now_init() != ESP_OK) {
+    Serial.println("ESP-NOW init failed");
+    return;
+  }
+
+  esp_now_register_send_cb(OnDataSent);
+
+  // Clear any previous peers (to avoid conflicts)
+  esp_now_del_peer(receiverMacAddress);
+
+  // Add the receiver as a peer
+  esp_now_peer_info_t peerInfo = {};
+  memcpy(peerInfo.peer_addr, receiverMacAddress, 6);
+  peerInfo.channel = 0;  // Automatically use the same channel as the receiver
+  peerInfo.encrypt = false;
+
+  if (esp_now_add_peer(&peerInfo) != ESP_OK) {
+    Serial.println("Failed to add peer");
+    return;
+  }
+
+  Serial.println("Sender ready");
+}
+
+void loop() {
+  unsigned long currentTime = millis();
+
+  if (currentTime - lastSendTime >= sendInterval) {
+    lastSendTime = currentTime;
+
+    // Send message
+    const char *msg = "123";
+    esp_err_t result = esp_now_send(receiverMacAddress, (uint8_t *)msg, strlen(msg));
+
+    if (result == ESP_OK) {
+      Serial.println("Message sent!");
+    } else {
+      Serial.print("Send failed. Error code: ");
+      Serial.println(result);
+    }
+  }
+}
+
+
+===========================================
+
+
+#include <WiFi.h>
+#include <esp_now.h>
+
+// Store the incoming message for display
+char receivedMessage[32] = "";  // Store the message received
+
+// 📥 Callback when data is received
+void OnDataRecv(const esp_now_recv_info_t *info, const uint8_t *incomingData, int len) {
+  // Copy the incoming data into the message buffer
+  memcpy(receivedMessage, incomingData, len);
+  receivedMessage[len] = '\0';  // Null-terminate the string
+
+  // Print the sender's MAC address and the received message
+  char macStr[18];
+  snprintf(macStr, sizeof(macStr), "%02X:%02X:%02X:%02X:%02X:%02X",
+           info->src_addr[0], info->src_addr[1], info->src_addr[2],
+           info->src_addr[3], info->src_addr[4], info->src_addr[5]);
+  Serial.print("Message received from: ");
+  Serial.println(macStr);
+  Serial.print("Message: ");
+  Serial.println(receivedMessage);
+}
+
+// Print this device's MAC address (Station Mode)
+void printMAC() {
+  String mac = WiFi.macAddress();
+  Serial.print("Receiver MAC: ");
+  Serial.println(mac);
+}
+
+void setup() {
+  Serial.begin(115200);
+  WiFi.mode(WIFI_STA);  // ESP-NOW requires Station mode
+  WiFi.disconnect();    // Just in case
+
+  // Print the receiver's MAC address
+  printMAC();
+
+  if (esp_now_init() != ESP_OK) {
+    Serial.println("ESP-NOW init failed");
+    return;
+  }
+
+  esp_now_register_recv_cb(OnDataRecv);  // Register receive callback
+
+  Serial.println("Receiver ready");
+}
+
+void loop() {
+  // Check if a message is received
+  if (receivedMessage[0] != '\0') {
+    // Print the received message to the Serial Monitor
+    Serial.println("Message: ");
+    Serial.println(receivedMessage);
+
+    // Clear the message buffer after processing (optional)
+    memset(receivedMessage, 0, sizeof(receivedMessage));
+  }
+
+  // You can add other processing here if needed
+}
