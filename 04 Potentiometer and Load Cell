@@ -1,0 +1,41 @@
+// Basic Value Read 
+// all connected to 3.3v
+
+const int potPin = 34; //potentiomeeter
+
+#include "HX711.h"
+
+#define DT 33    // Data pin connected to GPIO 33
+#define SCK 25   // Clock pin connected to GPIO 25
+
+HX711 scale;
+
+// variable for storing the potentiometer value
+int potValue = 0;
+
+void setup() {
+  Serial.begin(115200);
+  scale.begin(DT, SCK);
+
+  Serial.println("HX711 with ESP32 started");
+
+  scale.set_scale();  // Set your own calibration factor later
+  scale.tare();       // Reset the scale to 0
+  delay(1000);
+}
+
+void loop() {
+  // Reading potentiometer value
+  potValue = analogRead(potPin);
+  Serial.print("potValue:");
+  Serial.print(potValue);
+if (scale.is_ready()) {
+    long reading = scale.read();
+    Serial.print(",Rawvalue:");
+    Serial.println(reading);
+  } else {
+    Serial.println("HX711 not connected or not ready");
+  }
+
+  delay(500);
+}
