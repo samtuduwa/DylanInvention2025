@@ -1,7 +1,7 @@
 // Basic Value Read 
 // all connected to 3.3v
 
-const int potPin = 34; //potentiomeeter
+const int potPin = 34;
 
 #include "HX711.h"
 
@@ -9,6 +9,8 @@ const int potPin = 34; //potentiomeeter
 #define SCK 25   // Clock pin connected to GPIO 25
 
 HX711 scale;
+
+//0-- 4099    296686 37484
 
 // variable for storing the potentiometer value
 int potValue = 0;
@@ -31,8 +33,9 @@ void loop() {
   Serial.print(potValue);
 if (scale.is_ready()) {
     long reading = scale.read();
-    Serial.print(",Rawvalue:");
-    Serial.println(reading);
+    long outputValue = map(reading, 296686, 37484, 0, 4099); 
+ Serial.print(",Rawvalue:");
+Serial.println(outputValue);
   } else {
     Serial.println("HX711 not connected or not ready");
   }
