@@ -1,0 +1,25 @@
+// prototype 1 full implementation with two buttons and led and buzzer
+
+
+const int buttonPin = 2;
+const int buzzerPin = 4;
+const int ledPin = 6;
+
+void setup() {
+  Serial.begin(9600);
+  pinMode(buttonPin, INPUT);
+  pinMode(buzzerPin, OUTPUT);
+    pinMode(ledPin, OUTPUT);
+}
+
+void loop() {
+  int buttonState = digitalRead(buttonPin);
+
+  if (buttonState == HIGH) {
+    tone(buzzerPin, 3000); // louder
+    digitalWrite(ledPin, HIGH);
+  } else {
+    noTone(buzzerPin);
+    digitalWrite(ledPin, LOW);
+  }
+}
