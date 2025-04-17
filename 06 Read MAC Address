@@ -1,5 +1,5 @@
-Reciever - 5C:01:3B:65:09:90
-Sender - 5C:01:3B:4B:63:78
+Sender- 5C:01:3B:65:09:90
+ Reciever- 5C:01:3B:4B:63:78
 
 
 #include <WiFi.h>
