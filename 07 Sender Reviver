@@ -1,0 +1,168 @@
+// LED, Potentiomeeter, Load Cell with ESP Now, No Reviever Cconfig
+
+#include <WiFi.h>
+#include <esp_now.h>
+#include "HX711.h"
+
+// 📡 Receiver MAC address (update if needed)
+uint8_t receiverMacAddress[] = {0x5C, 0x01, 0x3B, 0x4B, 0x63, 0x78};
+
+// 📊 Pins for HX711 and sensor
+#define DT 33
+#define SCK 25
+HX711 scale;
+
+// 🎛️ Potentiometer and LED pins
+const int potPin = 34;
+const int ledPin = 27;
+
+// 🕒 Timing
+unsigned long lastSendTime = 0;
+const unsigned long sendInterval = 100;  // Send interval in ms
+
+// 📤 Callback when data is sent
+void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
+  Serial.print("Send Status: ");
+  Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Success" : "Fail");
+}
+
+void setup() {
+  Serial.begin(115200);
+
+  // Setup HX711 and tare scale
+  scale.begin(DT, SCK);
+  scale.set_scale();  // Set calibration factor later if needed
+  scale.tare();
+
+  pinMode(ledPin, OUTPUT);
+
+  // Setup WiFi + ESP-NOW
+  WiFi.mode(WIFI_STA);
+  WiFi.disconnect();
+  if (esp_now_init() != ESP_OK) {
+    Serial.println("ESP-NOW init failed");
+    return;
+  }
+
+  esp_now_register_send_cb(OnDataSent);
+
+  esp_now_peer_info_t peerInfo = {};
+  memcpy(peerInfo.peer_addr, receiverMacAddress, 6);
+  peerInfo.channel = 0;
+  peerInfo.encrypt = false;
+
+  if (esp_now_add_peer(&peerInfo) != ESP_OK) {
+    Serial.println("Failed to add peer");
+    return;
+  }
+
+  Serial.println("System Ready");
+}
+
+void loop() {
+  int potValue = analogRead(potPin);
+  Serial.print("potValue: ");
+  Serial.print(potValue);
+
+  if (scale.is_ready()) {
+    long reading = scale.read();
+    long outputValue = map(reading, 296686, 37484, 0, 4099); // Adjust these values based on calibration
+    Serial.print(" | Rawvalue: ");
+    Serial.println(outputValue);
+
+    if (potValue < outputValue) {
+      digitalWrite(ledPin, HIGH);
+
+      // Send only if enough time has passed
+      if (millis() - lastSendTime >= sendInterval) {
+        lastSendTime = millis();
+
+        const char *msg = "1";
+        esp_err_t result = esp_now_send(receiverMacAddress, (uint8_t *)msg, strlen(msg));
+        if (result == ESP_OK) {
+          Serial.println("Message sent: 1");
+        } else {
+          Serial.print("Send error: ");
+          Serial.println(result);
+        }
+      }
+    } else {
+      digitalWrite(ledPin, LOW);
+    }
+  } else {
+    Serial.println("HX711 not ready");
+  }
+
+  delay(200);
+}
+
+
+
+
+=================================
+
+#include <WiFi.h>
+#include <esp_now.h>
+
+// Store the incoming message for display
+char receivedMessage[32] = "";  // Store the message received
+
+// 📥 Callback when data is received
+void OnDataRecv(const esp_now_recv_info_t *info, const uint8_t *incomingData, int len) {
+  // Copy the incoming data into the message buffer
+  memcpy(receivedMessage, incomingData, len);
+  receivedMessage[len] = '\0';  // Null-terminate the string
+
+  // Print the sender's MAC address and the received message
+  char macStr[18];
+  snprintf(macStr, sizeof(macStr), "%02X:%02X:%02X:%02X:%02X:%02X",
+           info->src_addr[0], info->src_addr[1], info->src_addr[2],
+           info->src_addr[3], info->src_addr[4], info->src_addr[5]);
+  Serial.print("Message received from: ");
+  Serial.println(macStr);
+  Serial.print("Message: ");
+  Serial.println(receivedMessage);
+}
+
+// Print this device's MAC address (Station Mode)
+void printMAC() {
+  String mac = WiFi.macAddress();
+  Serial.print("Receiver MAC: ");
+  Serial.println(mac);
+}
+
+void setup() {
+  Serial.begin(115200);
+  WiFi.mode(WIFI_STA);  // ESP-NOW requires Station mode
+  WiFi.disconnect();    // Just in case
+
+  // Print the receiver's MAC address
+  printMAC();
+
+  if (esp_now_init() != ESP_OK) {
+    Serial.println("ESP-NOW init failed");
+    return;
+  }
+
+  esp_now_register_recv_cb(OnDataRecv);  // Register receive callback
+
+  Serial.println("Receiver ready");
+}
+
+void loop() {
+  // Check if a message is received
+  if (receivedMessage[0] != '\0') {
+    // Print the received message to the Serial Monitor
+    Serial.println("Message: ");
+    Serial.println(receivedMessage);
+
+    if (strcmp(receivedMessage, "1") == 0) {
+      Serial.println("Message is one");
+    }
+
+    // Clear the message buffer after processing (optional)
+    memset(receivedMessage, 0, sizeof(receivedMessage));
+  }
+
+  // You can add other processing here if needed
+}
