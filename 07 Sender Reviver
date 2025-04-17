@@ -104,39 +104,31 @@ void loop() {
 #include <WiFi.h>
 #include <esp_now.h>
 
-// Store the incoming message for display
-char receivedMessage[32] = "";  // Store the message received
+char receivedMessage[32] = "";
+const int buzzPin = 25; // Changed to an OUTPUT-capable pin
+const int ledPin = 27;
 
-// 📥 Callback when data is received
 void OnDataRecv(const esp_now_recv_info_t *info, const uint8_t *incomingData, int len) {
-  // Copy the incoming data into the message buffer
   memcpy(receivedMessage, incomingData, len);
-  receivedMessage[len] = '\0';  // Null-terminate the string
+  receivedMessage[len] = '\0';
 
-  // Print the sender's MAC address and the received message
-  char macStr[18];
-  snprintf(macStr, sizeof(macStr), "%02X:%02X:%02X:%02X:%02X:%02X",
-           info->src_addr[0], info->src_addr[1], info->src_addr[2],
-           info->src_addr[3], info->src_addr[4], info->src_addr[5]);
-  Serial.print("Message received from: ");
-  Serial.println(macStr);
-  Serial.print("Message: ");
+  Serial.print("Message received: ");
   Serial.println(receivedMessage);
 }
 
-// Print this device's MAC address (Station Mode)
 void printMAC() {
-  String mac = WiFi.macAddress();
   Serial.print("Receiver MAC: ");
-  Serial.println(mac);
+  Serial.println(WiFi.macAddress());
 }
 
 void setup() {
   Serial.begin(115200);
-  WiFi.mode(WIFI_STA);  // ESP-NOW requires Station mode
-  WiFi.disconnect();    // Just in case
+  WiFi.mode(WIFI_STA);
+  WiFi.disconnect();
 
-  // Print the receiver's MAC address
+  pinMode(ledPin, OUTPUT);
+  pinMode(buzzPin, OUTPUT);
+
   printMAC();
 
   if (esp_now_init() != ESP_OK) {
@@ -144,25 +136,23 @@ void setup() {
     return;
   }
 
-  esp_now_register_recv_cb(OnDataRecv);  // Register receive callback
-
+  esp_now_register_recv_cb(OnDataRecv);
   Serial.println("Receiver ready");
 }
 
 void loop() {
-  // Check if a message is received
   if (receivedMessage[0] != '\0') {
-    // Print the received message to the Serial Monitor
-    Serial.println("Message: ");
-    Serial.println(receivedMessage);
+    Serial.println("Processing message...");
 
     if (strcmp(receivedMessage, "1") == 0) {
-      Serial.println("Message is one");
+      digitalWrite(ledPin, HIGH);
+      digitalWrite(buzzPin, HIGH);
+      delay(1000); // Keep it on for 1 second
+      digitalWrite(ledPin, LOW);
+      digitalWrite(buzzPin, LOW);
     }
 
-    // Clear the message buffer after processing (optional)
     memset(receivedMessage, 0, sizeof(receivedMessage));
   }
-
-  // You can add other processing here if needed
 }
+
