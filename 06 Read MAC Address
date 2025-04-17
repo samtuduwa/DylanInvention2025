@@ -1,0 +1,25 @@
+Reciever - 5C:01:3B:65:09:90
+Sender - 5C:01:3B:4B:63:78
+
+
+#include <WiFi.h>
+
+void setup() {
+  Serial.begin(115200);
+
+  // Make sure WiFi is initialized
+  WiFi.mode(WIFI_STA);
+  WiFi.disconnect();  // just to be safe
+
+  delay(100);  // short wait for proper setup
+
+  // Get MAC address (station mode)
+  String mac = WiFi.macAddress();
+
+  Serial.print("ESP32 MAC Address: ");
+  Serial.println(mac);
+}
+
+void loop() {
+  // nothing to do here
+}
